@@ -1,0 +1,23 @@
+# Gradle build directories
+.gradle/
+build/
+**/build/
+
+# Java artifacts
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+out/
+
+# Misc
+.DS_Store
