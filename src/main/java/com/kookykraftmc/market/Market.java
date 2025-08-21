@@ -73,7 +73,7 @@ public class Market {
     @DefaultConfig(sharedRoot = false)
     private File defaultCfg;
 
-    private ConfigurationNode cfg;
+    private CommentedConfigurationNode cfg;
 
     @Inject
     @DefaultConfig(sharedRoot = false)
@@ -118,7 +118,10 @@ public class Market {
                 this.cfg.getNode("Market", "Sponge", "Server").setValue("TEST");
 
                 // Storage selection and MySQL defaults
-                this.cfg.getNode("Storage", "Type").setValue("redis");
+                this.cfg.getNode("Storage", "Type")
+                        .setComment("Storage backend used by the plugin. Valid options: redis or mysql")
+                        .setValue("redis");
+                this.cfg.getNode("MySQL").setComment("MySQL connection settings (used when Storage.Type is 'mysql')");
                 this.cfg.getNode("MySQL", "Host").setValue("localhost");
                 this.cfg.getNode("MySQL", "Port").setValue(3306);
                 this.cfg.getNode("MySQL", "Database").setValue("market");
