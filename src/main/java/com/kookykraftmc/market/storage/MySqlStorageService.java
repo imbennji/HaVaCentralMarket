@@ -435,4 +435,9 @@ public class MySqlStorageService implements StorageService {
         if (texts.isEmpty()) texts.add(Text.of(TextColors.RED, "No listings found."));
         return market.getPaginationService().builder().contents(texts).title(Texts.MARKET_SEARCH).build();
     }
+
+    @Override
+    public void close() {
+        dataSource.close();
+    }
 }

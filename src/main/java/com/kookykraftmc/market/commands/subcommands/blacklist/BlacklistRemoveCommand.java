@@ -20,8 +20,11 @@ public class BlacklistRemoveCommand implements CommandExecutor {
         Optional<String> oid = args.getOne("id");
         oid.ifPresent(s1 -> {
             boolean s = pl.blacklistRemoveCmd(s1);
-            if (s) src.sendMessage(Texts.BLACKLIST_REMOVED);
-            else src.sendMessage(Texts.BLACKLIST_REMOVED_FAIL);
+            if (s) {
+                src.sendMessage(Texts.BLACKLIST_REMOVED);
+            } else {
+                src.sendMessage(Texts.BLACKLIST_REMOVED_FAIL);
+            }
         });
         return CommandResult.success();
     }

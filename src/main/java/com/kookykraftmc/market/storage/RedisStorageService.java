@@ -381,4 +381,12 @@ public class RedisStorageService implements StorageService {
             return market.getPaginationService().builder().contents(texts).title(Texts.MARKET_SEARCH).build();
         }
     }
+
+    @Override
+    public void close() {
+        if (sub != null) {
+            sub.unsubscribe();
+        }
+        jedisPool.close();
+    }
 }

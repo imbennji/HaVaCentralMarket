@@ -35,4 +35,7 @@ public interface StorageService {
     // Search helpers
     PaginationList searchForItem(ItemType itemType);
     PaginationList searchForUUID(UUID uniqueId);
+
+    // Lifecycle
+    void close();
 }

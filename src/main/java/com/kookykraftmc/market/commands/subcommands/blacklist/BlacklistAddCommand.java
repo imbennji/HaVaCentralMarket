@@ -36,8 +36,11 @@ public class BlacklistAddCommand implements CommandExecutor {
                 id = si.getItem().getId();
             }
             boolean s = pl.blacklistAddCmd(id);
-            if (s) src.sendMessage(Texts.ADD_TO_BLACKLIST(id));
-            else src.sendMessage(Texts.BLACKLIST_NO_ADD_2);
+            if (s) {
+                src.sendMessage(Texts.ADD_TO_BLACKLIST(id));
+            } else {
+                src.sendMessage(Texts.BLACKLIST_NO_ADD_2);
+            }
         } else {
             src.sendMessage(Texts.BLACKLIST_NO_ADD);
         }

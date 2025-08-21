@@ -25,6 +25,7 @@ import org.spongepowered.api.event.cause.EventContext;
 import org.spongepowered.api.event.filter.Getter;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
+import org.spongepowered.api.event.game.state.GameStoppingServerEvent;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.item.inventory.ItemStack;
@@ -243,6 +244,13 @@ public class Market {
                 .child(search, "search")
                 .build();
         getGame().getCommandManager().register(this, marketCmd, "market");
+    }
+
+    @Listener
+    public void onServerStop(GameStoppingServerEvent event) {
+        if (storageService != null) {
+            storageService.close();
+        }
     }
 
     @Listener
