@@ -1,14 +1,14 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven { url "https://repo.spongepowered.org/maven" } // for spongegradle + plugin-meta
+        maven { url "https://repo.spongepowered.org/repository/maven-public/" } // for spongegradle + plugin-meta
         mavenCentral()                                       // harmless extra fallback
     }
     // Optional: make the mapping explicit (works fine with Gradle 6.9.4)
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id == "org.spongepowered.plugin") {
-                useModule("org.spongepowered:spongegradle:${requested.version}")
+                useModule("org.spongepowered:plugin-gradle:${requested.version}")
             }
         }
     }
