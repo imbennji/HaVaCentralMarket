@@ -2,6 +2,7 @@ package com.kookykraftmc.market.commands.subcommands.blacklist;
 
 import com.kookykraftmc.market.Market;
 import com.kookykraftmc.market.Texts;
+import com.kookykraftmc.market.MySqlStorageService;
 import org.spongepowered.api.block.BlockState;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
@@ -36,8 +37,15 @@ public class BlacklistAddCommand implements CommandExecutor {
                 id = si.getItem().getId();
             }
             boolean s = pl.blacklistAddCmd(id);
-            if (s) src.sendMessage(Texts.ADD_TO_BLACKLIST(id));
-            else src.sendMessage(Texts.BLACKLIST_NO_ADD_2);
+            if (s) {
+                src.sendMessage(Texts.ADD_TO_BLACKLIST(id));
+                MySqlStorageService sql = pl.getMySqlStorageService();
+                if (sql != null) {
+                    sql.insertBlacklistEvent("BLACKLIST_ADD", id);
+                }
+            } else {
+                src.sendMessage(Texts.BLACKLIST_NO_ADD_2);
+            }
         } else {
             src.sendMessage(Texts.BLACKLIST_NO_ADD);
         }

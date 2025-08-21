@@ -75,7 +75,9 @@ public class Market {
     private String redisHost;
     private String redisPass;
     private JedisPool jedisPool;
-    private RedisPubSub sub;
+
+    // Optional MySQL storage service used for cross server synchronization
+    private MySqlStorageService sqlStorage;
 
     private Cause marketCause;
     private List<String> blacklistedItems;
@@ -246,14 +248,15 @@ public class Market {
         return configManager;
     }
 
+    public MySqlStorageService getMySqlStorageService() {
+        return sqlStorage;
+    }
+
     void subscribe() {
-        getScheduler().createAsyncExecutor(this)
-                .execute(() -> {
-                    sub = new RedisPubSub();
-                    try (Jedis jedis = getJedis().getResource()) {
-                        jedis.subscribe(sub, RedisPubSub.Channels.channels);
-                    }
-                });
+        if (sqlStorage != null) {
+            getScheduler().createAsyncExecutor(this)
+                    .execute(new MySqlListener(this, sqlStorage));
+        }
     }
 
     //////////////////////////////// REDIS ////////////////////////////////
@@ -593,21 +596,19 @@ public class Market {
     public boolean blacklistAddCmd(String id) {
         try (Jedis jedis = getJedis().getResource()) {
             if (jedis.hexists(RedisKeys.BLACKLIST, id)) return false;
-            else
-                jedis.hset(RedisKeys.BLACKLIST, id, String.valueOf(true));
-            jedis.publish(RedisPubSub.Channels.marketBlacklistAdd, id);
-            return true;
+            jedis.hset(RedisKeys.BLACKLIST, id, String.valueOf(true));
         }
+        addIDToBlackList(id);
+        return true;
     }
 
     public boolean blacklistRemoveCmd(String id) {
         try (Jedis jedis = getJedis().getResource()) {
             if (!jedis.hexists(RedisKeys.BLACKLIST, id)) return false;
-            else
-                jedis.hdel(RedisKeys.BLACKLIST, id);
-            jedis.publish(RedisPubSub.Channels.marketBlacklistRemove, id);
-            return true;
+            jedis.hdel(RedisKeys.BLACKLIST, id);
         }
+        rmIDFromBlackList(id);
+        return true;
     }
 
     public void addIDToBlackList(String id) {
