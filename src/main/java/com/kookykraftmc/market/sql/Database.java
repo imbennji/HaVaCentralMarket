@@ -8,6 +8,8 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.stream.Collectors;
 
@@ -18,8 +20,20 @@ public class Database {
 
     public Database(String host, int port, String database, String username, String password, Logger logger) {
         this.logger = logger;
+
+        // Ensure the target database exists before initializing the pool. Some
+        // MySQL setups do not create databases automatically which would cause
+        // later connection attempts to fail and no tables to be created.
+        String baseJdbc = "jdbc:mysql://" + host + ":" + port + "/";
+        try (Connection conn = DriverManager.getConnection(baseJdbc, username, password);
+             Statement st = conn.createStatement()) {
+            st.executeUpdate("CREATE DATABASE IF NOT EXISTS `" + database + "`");
+        } catch (SQLException e) {
+            logger.error("Failed to create database {}", database, e);
+        }
+
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + database);
+        config.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + database + "?useSSL=false&serverTimezone=UTC");
         config.setUsername(username);
         config.setPassword(password);
         config.setMaximumPoolSize(10);
