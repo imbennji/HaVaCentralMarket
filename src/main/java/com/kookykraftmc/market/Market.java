@@ -175,25 +175,21 @@ public class Market {
         marketCause = Cause.of(EventContext.empty(), this);
 
         if (useMySql) {
-            if (database != null) {
-                try (Connection conn = database.getDataSource().getConnection();
-                     PreparedStatement ps = conn.prepareStatement("SELECT item FROM blacklist");
-                     ResultSet rs = ps.executeQuery()) {
-                    blacklistedItems = new ArrayList<>();
-                    while (rs.next()) {
-                        blacklistedItems.add(rs.getString("item"));
-                    }
-                } catch (SQLException e) {
-                    logger.error("Failed to load blacklist from MySQL", e);
-                }
-            } else {
-                logger.error("Fatal error: MySQL initialization failed (database is null). Aborting initialization.");
+            if (database == null) {
+                logger.error("MySQL initialization failed (database is null). Aborting initialization.");
                 return;
             }
-        } else if (useMySql && database == null) {
-            logger.error("MySQL initialization failed (database is null). Check credentials or driver.");
+            try (Connection conn = database.getDataSource().getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT item FROM blacklist");
+                 ResultSet rs = ps.executeQuery()) {
+                blacklistedItems = new ArrayList<>();
+                while (rs.next()) {
+                    blacklistedItems.add(rs.getString("item"));
+                }
+            } catch (SQLException e) {
+                logger.error("Failed to load blacklist from MySQL", e);
+            }
         } else {
-
             JedisPool pool = getJedis();
             if (pool == null) {
                 logger.info("Skipping blacklist loading from Redis; no pool available.");
