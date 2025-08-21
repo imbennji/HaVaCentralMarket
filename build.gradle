@@ -35,6 +35,10 @@ dependencies {
 
     // MongoDB Java driver (Java 8 compatible)
     implementation 'org.mongodb:mongodb-driver-sync:4.11.1'
+
+    // MySQL storage
+    implementation 'com.zaxxer:HikariCP:4.0.3'
+    implementation 'mysql:mysql-connector-java:8.0.33'
 }
 
 sponge.plugin.id = PID
@@ -47,6 +51,8 @@ tasks.named('shadowJar') {
         include(dependency('org.mongodb:mongodb-driver-sync'))
         include(dependency('org.mongodb:bson'))
         include(dependency('org.mongodb:mongodb-driver-core'))
+        include(dependency('com.zaxxer:HikariCP'))
+        include(dependency('mysql:mysql-connector-java'))
     }
 
     // relocate shaded libs to avoid server conflicts
@@ -54,6 +60,8 @@ tasks.named('shadowJar') {
     relocate 'redis.clients',  "${PG}.relocate.redis.clients"
     relocate 'com.mongodb',    "${PG}.relocate.com.mongodb"
     relocate 'org.bson',       "${PG}.relocate.org.bson"
+    relocate 'com.zaxxer.hikari', "${PG}.relocate.com.zaxxer.hikari"
+    relocate 'com.mysql',      "${PG}.relocate.com.mysql"
 
     archiveFileName.set("Market-${PV}.jar")
 }
