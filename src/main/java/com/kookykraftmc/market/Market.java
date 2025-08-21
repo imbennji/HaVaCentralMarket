@@ -146,6 +146,12 @@ public class Market {
                 String sqlPassword = cfg.getNode("MySQL", "Password").getString("");
                 database = new Database(sqlHost, sqlPort, sqlDatabase, sqlUser, sqlPassword, logger);
                 database.runMigrations();
+                try {
+                    sqlStorage = new MySqlStorageService(database.getDataSource(), logger);
+                    subscribe();
+                } catch (SQLException e) {
+                    logger.error("Failed to initialize MySQL storage service", e);
+                }
             } else {
                 this.redisPort = cfg.getNode("Redis", "Port").getInt();
                 this.redisHost = cfg.getNode("Redis", "Host").getString();
