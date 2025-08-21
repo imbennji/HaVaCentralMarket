@@ -504,6 +504,16 @@ public class Market {
             if (itemStack.getQuantity() < quantityPerSale || quantityPerSale <= 0 || isBlacklisted(itemStack)) {
                 return 0;
             }
+
+            // Mirror Redis behaviour by preventing duplicate listings from the same
+            // seller for identical items. Previously the MySQL backend attempted to
+            // insert the listing and relied on a database error when a similar
+            // listing already existed, which resulted in a generic failure message.
+            // Check beforehand and return -1 so the caller can instruct the player
+            // to use the add stock command instead.
+            if (checkForOtherListings(itemStack, player.getUniqueId().toString())) {
+                return -1;
+            }
             try (Connection conn = database.getDataSource().getConnection();
                  PreparedStatement ps = conn.prepareStatement(
                          "INSERT INTO listings (seller_uuid, item, stock, price, quantity) VALUES (?, ?, ?, ?, ?)",
