@@ -14,6 +14,7 @@ public class Texts {
     public static Text NOT_ENOUGH_ITEMS = Text.builder().color(TextColors.RED).append(Text.of("You cannot set the quantity to more than what you have in your hand.")).build();
     public static Text INVALID_LISTING = Text.builder().color(TextColors.RED).append(Text.of("Unable to get listing.")).build();
     public static Text INV_FULL = Text.builder().color(TextColors.RED).append(Text.of("Unable to add the item to your inventory. Please make sure it is not full. Will try to add the item to your inventory again in 30 seconds.")).build();
+    public static Text DELIVERY_FAILED = Text.builder().color(TextColors.RED).append(Text.of("Unable to add the item to your inventory after multiple attempts. Delivery cancelled.")).build();
     public static Text PURCHASE_SUCCESSFUL = Text.builder().color(TextColors.GREEN).append(Text.of("Purchase successful and the item has been added to your inventory.")).build();
     public static Text USE_ADD_STOCK = Text.builder().color(TextColors.RED).append(Text.of("You already have a listing of a similar item, please use /market addstock <listing id>.")).build();
 

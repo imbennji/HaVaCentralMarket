@@ -14,25 +14,36 @@ import java.util.concurrent.TimeUnit;
  * Created by TimeTheCat on 4/3/2017.
  */
 public class InvFullTask implements Runnable {
+    private static final int MAX_ATTEMPTS = 5;
     private Market pl = Market.instance;
     private Player player;
     private ItemStack item;
+    private int attemptsLeft;
 
     public InvFullTask(ItemStack item, Player player) {
+        this(item, player, MAX_ATTEMPTS);
+    }
+
+    private InvFullTask(ItemStack item, Player player, int attemptsLeft) {
         this.item = item;
         this.player = player;
+        this.attemptsLeft = attemptsLeft;
     }
 
     @Override
     public void run() {
         InventoryTransactionResult offer = player.getInventory().query(Hotbar.class, GridInventory.class).offer(item);
         if (!offer.getType().equals(InventoryTransactionResult.Type.SUCCESS)) {
-            player.sendMessage(Texts.INV_FULL);
-            pl.getScheduler().createTaskBuilder()
-                    .name("Market Delivery")
-                    .execute(new InvFullTask(item, player))
-                    .delay(30, TimeUnit.SECONDS)
-                    .submit(pl);
+            if (attemptsLeft > 1) {
+                player.sendMessage(Texts.INV_FULL);
+                pl.getScheduler().createTaskBuilder()
+                        .name("Market Delivery")
+                        .execute(new InvFullTask(item, player, attemptsLeft - 1))
+                        .delay(30, TimeUnit.SECONDS)
+                        .submit(pl);
+            } else {
+                player.sendMessage(Texts.DELIVERY_FAILED);
+            }
         } else {
             player.sendMessage(Texts.PURCHASE_SUCCESSFUL);
         }
