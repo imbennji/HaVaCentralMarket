@@ -169,16 +169,16 @@ public class Market {
                 int maxId = 0;
                 for (ListingRecord listing : listings) {
                     String id = String.valueOf(listing.getId());
-                    String key = RedisKeys.MARKET_ITEM_KEY(id);
+                    String key = RedisKeys.marketItemKey(id);
                     jedis.hset(key, "Item", listing.getItem());
                     jedis.hset(key, "Seller", listing.getSellerUuid());
                     jedis.hset(key, "Stock", String.valueOf(listing.getStock()));
                     jedis.hset(key, "Price", String.valueOf(listing.getPrice()));
                     jedis.hset(key, "Quantity", String.valueOf(listing.getQuantity()));
-                    jedis.hset(RedisKeys.FOR_SALE, id, listing.getSellerUuid());
+                    jedis.hset(RedisKeys.forSale(), id, listing.getSellerUuid());
                     maxId = Math.max(maxId, listing.getId());
                 }
-                jedis.set(RedisKeys.LAST_MARKET_ID, String.valueOf(maxId + 1));
+                jedis.set(RedisKeys.lastMarketId(), String.valueOf(maxId + 1));
             } else {
                 blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
             }
@@ -432,10 +432,10 @@ public class Market {
         try (Jedis jedis = getJedis().getResource()) {
             // if there are fewer items than they want to sell every time, return 0
             if (itemStack.getQuantity() < quantityPerSale || quantityPerSale <= 0 || isBlacklisted(itemStack)) return 0;
-            if (!jedis.exists(RedisKeys.LAST_MARKET_ID)) {
-                jedis.set(RedisKeys.LAST_MARKET_ID, String.valueOf(1));
+            if (!jedis.exists(RedisKeys.lastMarketId())) {
+                jedis.set(RedisKeys.lastMarketId(), String.valueOf(1));
                 int id = 1;
-                String key = RedisKeys.MARKET_ITEM_KEY(String.valueOf(id));
+                String key = RedisKeys.marketItemKey(String.valueOf(id));
                 String serialized = serializeItem(itemStack);
                 Transaction m = jedis.multi();
                 m.hset(key, "Item", serialized);
@@ -445,9 +445,9 @@ public class Market {
                 m.hset(key, "Quantity", String.valueOf(quantityPerSale));
                 m.exec();
 
-                jedis.hset(RedisKeys.FOR_SALE, String.valueOf(id), player.getUniqueId().toString());
+                jedis.hset(RedisKeys.forSale(), String.valueOf(id), player.getUniqueId().toString());
 
-                jedis.incr(RedisKeys.LAST_MARKET_ID);
+                jedis.incr(RedisKeys.lastMarketId());
 
                 if (sqlStorage != null) {
                     sqlStorage.insertListing(new ListingRecord(id, player.getUniqueId().toString(), serialized, itemStack.getQuantity(), price, quantityPerSale));
@@ -455,8 +455,8 @@ public class Market {
 
                 return id;
             } else {
-                int id = Integer.parseInt(jedis.get(RedisKeys.LAST_MARKET_ID));
-                String key = RedisKeys.MARKET_ITEM_KEY(String.valueOf(id));
+                int id = Integer.parseInt(jedis.get(RedisKeys.lastMarketId()));
+                String key = RedisKeys.marketItemKey(String.valueOf(id));
                 if (checkForOtherListings(itemStack, player.getUniqueId().toString())) return -1;
                 String serialized = serializeItem(itemStack);
 
@@ -468,9 +468,9 @@ public class Market {
                 m.hset(key, "Quantity", String.valueOf(quantityPerSale));
                 m.exec();
 
-                jedis.hset(RedisKeys.FOR_SALE, String.valueOf(id), player.getUniqueId().toString());
+                jedis.hset(RedisKeys.forSale(), String.valueOf(id), player.getUniqueId().toString());
 
-                jedis.incr(RedisKeys.LAST_MARKET_ID);
+                jedis.incr(RedisKeys.lastMarketId());
 
                 if (sqlStorage != null) {
                     sqlStorage.insertListing(new ListingRecord(id, player.getUniqueId().toString(), serialized, itemStack.getQuantity(), price, quantityPerSale));
@@ -483,7 +483,7 @@ public class Market {
 
     private boolean checkForOtherListings(ItemStack itemStack, String s) {
         try (Jedis jedis = getJedis().getResource()) {
-            Map<String, String> d = jedis.hgetAll(RedisKeys.FOR_SALE);
+            Map<String, String> d = jedis.hgetAll(RedisKeys.forSale());
 
             Map<String, String> e = d.entrySet().stream()
                     .filter(stringStringEntry -> stringStringEntry.getValue().equals(s))
@@ -492,7 +492,7 @@ public class Market {
             else {
                 final boolean[] hasOther = {false};
                 e.forEach((s1, s2) -> {
-                    Optional<ItemStack> ooi = deserializeItemStack(jedis.hget(RedisKeys.MARKET_ITEM_KEY(s1), "Item"));
+                    Optional<ItemStack> ooi = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(s1), "Item"));
                     if (!ooi.isPresent()) return;
                     if (matchItemStacks(ooi.get(), itemStack)) {
                         hasOther[0] = true;
@@ -505,10 +505,10 @@ public class Market {
 
     public PaginationList getListings() {
         try (Jedis jedis = getJedis().getResource()) {
-            Set<String> openListings = jedis.hgetAll(RedisKeys.FOR_SALE).keySet();
+            Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
             List<Text> texts = new ArrayList<>();
             for (String openListing : openListings) {
-                Map<String, String> listing = jedis.hgetAll(RedisKeys.MARKET_ITEM_KEY(openListing));
+                Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
                 Text.Builder l = Text.builder();
                 Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
                 if (!is.isPresent()) continue;
@@ -540,10 +540,10 @@ public class Market {
 
     public List<ItemStack> removeListing(String id, String uuid, boolean staff) {
         try (Jedis jedis = getJedis().getResource()) {
-            if (!jedis.hexists(RedisKeys.FOR_SALE, id)) return null;
+            if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
             else {
                 // get info about the listing
-                Map<String, String> listing = jedis.hgetAll(RedisKeys.MARKET_ITEM_KEY(id));
+                Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(id));
                 // check to see if the uuid matches the seller, or the user is a staff member
                 if (!listing.get("Seller").equals(uuid) && !staff) return null;
                 // get how much stock it has
@@ -564,7 +564,7 @@ public class Market {
                     stacks.add(extra);
                 }
                 // remove from the listings
-                jedis.hdel(RedisKeys.FOR_SALE, id);
+                jedis.hdel(RedisKeys.forSale(), id);
                 if (sqlStorage != null) {
                     sqlStorage.removeListing(Integer.parseInt(id));
                 }
@@ -576,9 +576,9 @@ public class Market {
     public PaginationList getListing(String id) {
         try (Jedis jedis = getJedis().getResource()) {
             // if the item is not for sale, do not get the listing
-            if (!jedis.hexists(RedisKeys.FOR_SALE, id)) return null;
+            if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
             // get info about the listing
-            Map<String, String> listing = jedis.hgetAll(RedisKeys.MARKET_ITEM_KEY(id));
+            Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(id));
             // create list of Texts for pages
             List<Text> texts = new ArrayList<>();
             // replace with item if key is "Item", replace uuid with name from cache.
@@ -617,15 +617,15 @@ public class Market {
 
     public boolean addStock(ItemStack itemStack, String id, UUID uuid) {
         try (Jedis jedis = getJedis().getResource()) {
-            if (!jedis.hexists(RedisKeys.FOR_SALE, id)) return false;
-            else if (!jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Seller").equals(uuid.toString())) return false;
+            if (!jedis.hexists(RedisKeys.forSale(), id)) return false;
+            else if (!jedis.hget(RedisKeys.marketItemKey(id), "Seller").equals(uuid.toString())) return false;
             else {
-                ItemStack listingStack = deserializeItemStack(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Item")).get();
+                ItemStack listingStack = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item")).get();
                 // if the stack in the listing matches the stack it's trying to add, add it to the stack
                 if (matchItemStacks(listingStack, itemStack)) {
-                    int stock = Integer.parseInt(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Stock"));
+                    int stock = Integer.parseInt(jedis.hget(RedisKeys.marketItemKey(id), "Stock"));
                     int quan = itemStack.getQuantity() + stock;
-                    jedis.hset(RedisKeys.MARKET_ITEM_KEY(id), "Stock", String.valueOf(quan));
+                    jedis.hset(RedisKeys.marketItemKey(id), "Stock", String.valueOf(quan));
                     if (sqlStorage != null) {
                         sqlStorage.updateListingStock(Integer.parseInt(id), quan);
                     }
@@ -641,31 +641,31 @@ public class Market {
 
     public ItemStack purchase(UniqueAccount uniqueAccount, String id) {
         try (Jedis jedis = getJedis().getResource()) {
-            if (!jedis.hexists(RedisKeys.FOR_SALE, id)) return null;
+            if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
             else {
                 TransactionResult tr = uniqueAccount.transfer(
-                        getEconomyService().getOrCreateAccount(UUID.fromString(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Seller"))).get(),
+                        getEconomyService().getOrCreateAccount(UUID.fromString(jedis.hget(RedisKeys.marketItemKey(id), "Seller"))).get(),
                         getEconomyService().getDefaultCurrency(),
-                        BigDecimal.valueOf(Long.parseLong(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Price"))),
+                        BigDecimal.valueOf(Long.parseLong(jedis.hget(RedisKeys.marketItemKey(id), "Price"))),
                         marketCause // SpongeAPI 7: pass the Cause directly
                 );
                 if (tr.getResult().equals(ResultType.SUCCESS)) {
                     // get the itemstack
-                    ItemStack is = deserializeItemStack(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Item")).get();
+                    ItemStack is = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item")).get();
                     // get the quantity per sale
-                    int quant = Integer.parseInt(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Quantity"));
+                    int quant = Integer.parseInt(jedis.hget(RedisKeys.marketItemKey(id), "Quantity"));
                     // get the amount in stock
-                    int inStock = Integer.parseInt(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Stock"));
+                    int inStock = Integer.parseInt(jedis.hget(RedisKeys.marketItemKey(id), "Stock"));
                     // get the new quantity
                     int newQuant = inStock - quant;
                     // if the new quantity is less than the quantity to be sold, expire the listing
                     if (newQuant < quant) {
-                        jedis.hdel(RedisKeys.FOR_SALE, id);
+                        jedis.hdel(RedisKeys.forSale(), id);
                         if (sqlStorage != null) {
                             sqlStorage.removeListing(Integer.parseInt(id));
                         }
                     } else {
-                        jedis.hset(RedisKeys.MARKET_ITEM_KEY(id), "Stock", String.valueOf(newQuant));
+                        jedis.hset(RedisKeys.marketItemKey(id), "Stock", String.valueOf(newQuant));
                         if (sqlStorage != null) {
                             sqlStorage.updateListingStock(Integer.parseInt(id), newQuant);
                         }
@@ -737,10 +737,10 @@ public class Market {
 
     public PaginationList searchForItem(ItemType itemType) {
         try (Jedis jedis = getJedis().getResource()) {
-            Set<String> openListings = jedis.hgetAll(RedisKeys.FOR_SALE).keySet();
+            Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
             List<Text> texts = new ArrayList<>();
             for (String openListing : openListings) {
-                Map<String, String> listing = jedis.hgetAll(RedisKeys.MARKET_ITEM_KEY(openListing));
+                Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
                 Text.Builder l = Text.builder();
                 Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
                 if (!is.isPresent()) continue;
@@ -774,10 +774,10 @@ public class Market {
 
     public PaginationList searchForUUID(UUID uniqueId) {
         try (Jedis jedis = getJedis().getResource()) {
-            Set<String> openListings = jedis.hgetAll(RedisKeys.FOR_SALE).keySet();
+            Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
             List<Text> texts = new ArrayList<>();
             for (String openListing : openListings) {
-                Map<String, String> listing = jedis.hgetAll(RedisKeys.MARKET_ITEM_KEY(openListing));
+                Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
                 if (listing.get("Seller").equals(uniqueId.toString())) {
                     Text.Builder l = Text.builder();
                     Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
