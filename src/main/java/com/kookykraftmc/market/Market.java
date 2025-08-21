@@ -136,7 +136,7 @@ public class Market {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("Failed to initialize Market", e);
         }
     }
 
@@ -369,7 +369,7 @@ public class Market {
         try {
             HoconConfigurationLoader.builder().setSink(() -> new BufferedWriter(stringWriter)).build().save(node);
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Failed to serialize item", e);
         }
         return stringWriter.toString();
     }
@@ -379,7 +379,7 @@ public class Market {
         try {
             node = HoconConfigurationLoader.builder().setSource(() -> new BufferedReader(new StringReader(item))).build().load();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error("Failed to deserialize item stack", e);
         }
         DataView dataView = DataTranslators.CONFIGURATION_NODE.translate(node);
         return getGame().getDataManager().deserialize(ItemStack.class, dataView);
