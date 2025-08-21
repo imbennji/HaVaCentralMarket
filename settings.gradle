@@ -8,7 +8,7 @@ pluginManagement {
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id == "org.spongepowered.plugin") {
-                useModule("org.spongepowered:plugin-gradle:${requested.version}")
+
             }
         }
     }
