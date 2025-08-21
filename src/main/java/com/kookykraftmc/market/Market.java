@@ -690,18 +690,18 @@ public class Market {
         }
     }
 
-    public List<ItemStack> removeListing(String id, String uuid, boolean staff) {
+    public Optional<List<ItemStack>> removeListing(String id, String uuid, boolean staff) {
         if (useMySql) {
             try (Connection conn = database.getDataSource().getConnection();
                  PreparedStatement ps = conn.prepareStatement("SELECT seller_uuid, item, stock FROM listings WHERE id = ?")) {
                 ps.setInt(1, Integer.parseInt(id));
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) return null;
+                    if (!rs.next()) return Optional.empty();
                     String seller = rs.getString("seller_uuid");
-                    if (!seller.equals(uuid) && !staff) return null;
+                    if (!seller.equals(uuid) && !staff) return Optional.empty();
                     int inStock = rs.getInt("stock");
                     Optional<ItemStack> item = deserializeItemStack(rs.getString("item"));
-                    if (!item.isPresent()) return null;
+                    if (!item.isPresent()) return Optional.empty();
                     ItemStack listingIS = item.get();
                     int stacksInStock = inStock / listingIS.getMaxStackQuantity();
                     List<ItemStack> stacks = new ArrayList<>();
@@ -717,28 +717,32 @@ public class Market {
                         del.setInt(1, Integer.parseInt(id));
                         del.executeUpdate();
                     }
-                    return stacks;
+                    return Optional.of(stacks);
                 }
             } catch (SQLException e) {
                 logger.error("Failed to remove listing", e);
             }
-            return null;
+            return Optional.empty();
         } else {
             JedisPool pool = getJedis();
             if (pool == null) {
-                return null;
+                return Optional.empty();
             }
             try (Jedis jedis = pool.getResource()) {
-                if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
+                if (!jedis.hexists(RedisKeys.forSale(), id)) return Optional.empty();
                 else {
                     // get info about the listing
                     Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(id));
                     // check to see if the uuid matches the seller, or the user is a staff member
-                    if (!listing.get("Seller").equals(uuid) && !staff) return null;
+                    if (!listing.get("Seller").equals(uuid) && !staff) return Optional.empty();
                     // get how much stock it has
                     int inStock = Integer.parseInt(listing.get("Stock"));
                     // deserialize the item
-                    ItemStack listingIS = deserializeItemStack(listing.get("Item")).get();
+                    Optional<ItemStack> listingOpt = deserializeItemStack(listing.get("Item"));
+                    if (!listingOpt.isPresent()) {
+                        return Optional.empty();
+                    }
+                    ItemStack listingIS = listingOpt.get();
                     // calculate the amount of stacks to make
                     int stacksInStock = inStock / listingIS.getMaxStackQuantity();
                     // new list for stacks
@@ -754,9 +758,10 @@ public class Market {
                     }
                     // remove from the listings
                     jedis.hdel(RedisKeys.forSale(), id);
-                    return stacks;
+                    return Optional.of(stacks);
                 }
             }
+            return Optional.empty();
         }
     }
 
@@ -768,7 +773,9 @@ public class Market {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) return null;
                     List<Text> texts = new ArrayList<>();
-                    texts.add(Texts.quickItemFormat(deserializeItemStack(rs.getString("item")).get()));
+                    ItemStack stack = deserializeItemStack(rs.getString("item"))
+                            .orElseThrow(() -> new IllegalStateException("Failed to deserialize item"));
+                    texts.add(Texts.quickItemFormat(stack));
                     texts.add(Text.of("Seller: " + getNameFromUUID(rs.getString("seller_uuid"))));
                     texts.add(Text.of("Price: " + rs.getInt("price")));
                     texts.add(Text.of("Quantity: " + rs.getInt("quantity")));
@@ -809,7 +816,9 @@ public class Market {
                 listing.forEach((key, value) -> {
                     switch (key) {
                         case "Item":
-                            texts.add(Texts.quickItemFormat(deserializeItemStack(value).get()));
+                            ItemStack stack = deserializeItemStack(value)
+                                    .orElseThrow(() -> new IllegalStateException("Failed to deserialize item"));
+                            texts.add(Texts.quickItemFormat(stack));
                             break;
                         case "Seller":
                             texts.add(Text.of("Seller: " + jedis.hget(RedisKeys.UUID_CACHE, value)));
@@ -848,7 +857,9 @@ public class Market {
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) return false;
                     if (!rs.getString("seller_uuid").equals(uuid.toString())) return false;
-                    ItemStack listingStack = deserializeItemStack(rs.getString("item")).get();
+                    Optional<ItemStack> listingOpt = deserializeItemStack(rs.getString("item"));
+                    if (!listingOpt.isPresent()) return false;
+                    ItemStack listingStack = listingOpt.get();
                     if (matchItemStacks(listingStack, itemStack)) {
                         int stock = rs.getInt("stock");
                         int quan = itemStack.getQuantity() + stock;
@@ -875,7 +886,9 @@ public class Market {
                 if (!jedis.hexists(RedisKeys.forSale(), id)) return false;
                 else if (!jedis.hget(RedisKeys.marketItemKey(id), "Seller").equals(uuid.toString())) return false;
                 else {
-                    ItemStack listingStack = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item")).get();
+                    Optional<ItemStack> listingOpt = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item"));
+                    if (!listingOpt.isPresent()) return false;
+                    ItemStack listingStack = listingOpt.get();
                     // if the stack in the listing matches the stack it's trying to add, add it to the stack
                     if (matchItemStacks(listingStack, itemStack)) {
                         int stock = Integer.parseInt(jedis.hget(RedisKeys.marketItemKey(id), "Stock"));
@@ -905,7 +918,9 @@ public class Market {
                             BigDecimal.valueOf(rs.getInt("price")),
                             marketCause);
                     if (tr.getResult().equals(ResultType.SUCCESS)) {
-                        ItemStack is = deserializeItemStack(rs.getString("item")).get();
+                        Optional<ItemStack> opt = deserializeItemStack(rs.getString("item"));
+                        if (!opt.isPresent()) return null;
+                        ItemStack is = opt.get();
                         int quant = rs.getInt("quantity");
                         int inStock = rs.getInt("stock");
                         int newQuant = inStock - quant;
@@ -948,7 +963,9 @@ public class Market {
                     );
                     if (tr.getResult().equals(ResultType.SUCCESS)) {
                         // get the itemstack
-                        ItemStack is = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item")).get();
+                        Optional<ItemStack> opt = deserializeItemStack(jedis.hget(RedisKeys.marketItemKey(id), "Item"));
+                        if (!opt.isPresent()) return null;
+                        ItemStack is = opt.get();
                         // get the quantity per sale
                         int quant = Integer.parseInt(jedis.hget(RedisKeys.marketItemKey(id), "Quantity"));
                         // get the amount in stock
