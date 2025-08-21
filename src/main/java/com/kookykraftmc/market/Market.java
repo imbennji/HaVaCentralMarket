@@ -181,23 +181,16 @@ public class Market {
             }
         } else {
             if (useMySql && database == null) {
-                logger.error("MySQL initialization failed (database is null). Check credentials or driver. Falling back to Redis.");
-
-                // Attempt to configure Redis as a fallback backend
-                this.redisPort = cfg.getNode("Redis", "Port").getInt();
-                this.redisHost = cfg.getNode("Redis", "Host").getString();
-                this.redisPass = cfg.getNode("Redis", "Password").getString();
-                if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
-                } else {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort);
-                }
-
-                useMySql = false;
+                logger.error("MySQL initialization failed (database is null). Check credentials or driver.");
             }
 
-            try (Jedis jedis = getJedis().getResource()) {
-                blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                logger.info("Skipping blacklist loading from Redis; no pool available.");
+            } else {
+                try (Jedis jedis = pool.getResource()) {
+                    blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
+                }
             }
         }
 
@@ -336,7 +329,11 @@ public class Market {
                 logger.error("Failed to update UUID cache", e);
             }
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 jedis.hset(RedisKeys.UUID_CACHE, uuid, name);
             }
         }
@@ -357,7 +354,11 @@ public class Market {
             }
             return uuid;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return uuid;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 String name = jedis.hget(RedisKeys.UUID_CACHE, uuid);
                 return name != null ? name : uuid;
             }
@@ -398,7 +399,12 @@ public class Market {
     public JedisPool getJedis() {
         if (cfg == null) {
             logger.error("Configuration not loaded. Unable to provide Jedis pool.");
-            throw new IllegalStateException("Configuration not loaded");
+            return null;
+        }
+
+        if (useMySql) {
+            logger.info("MySQL mode active; Redis operations are disabled.");
+            return null;
         }
 
         if (jedisPool == null) {
@@ -512,7 +518,11 @@ public class Market {
             }
             return 0;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return 0;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 // if there are fewer items than they want to sell every time, return 0
                 if (itemStack.getQuantity() < quantityPerSale || quantityPerSale <= 0 || isBlacklisted(itemStack)) return 0;
                 if (!jedis.exists(RedisKeys.lastMarketId())) {
@@ -573,7 +583,11 @@ public class Market {
             }
             return false;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return false;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 Map<String, String> d = jedis.hgetAll(RedisKeys.forSale());
 
                 Map<String, String> e = d.entrySet().stream()
@@ -631,7 +645,11 @@ public class Market {
             }
             return getPaginationService().builder().contents(texts).title(Texts.MARKET_LISTINGS).build();
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return getPaginationService().builder().contents(Collections.emptyList()).title(Texts.MARKET_LISTINGS).build();
+            }
+            try (Jedis jedis = pool.getResource()) {
                 Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
                 List<Text> texts = new ArrayList<>();
                 for (String openListing : openListings) {
@@ -700,7 +718,11 @@ public class Market {
             }
             return null;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return null;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
                 else {
                     // get info about the listing
@@ -766,7 +788,11 @@ public class Market {
             }
             return null;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return null;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 // if the item is not for sale, do not get the listing
                 if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
                 // get info about the listing
@@ -835,7 +861,11 @@ public class Market {
             }
             return false;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return false;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 if (!jedis.hexists(RedisKeys.forSale(), id)) return false;
                 else if (!jedis.hget(RedisKeys.marketItemKey(id), "Seller").equals(uuid.toString())) return false;
                 else {
@@ -897,7 +927,11 @@ public class Market {
             }
             return null;
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return null;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 if (!jedis.hexists(RedisKeys.forSale(), id)) return null;
                 else {
                     TransactionResult tr = uniqueAccount.transfer(
@@ -948,7 +982,11 @@ public class Market {
                 return false;
             }
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return false;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 if (jedis.hexists(RedisKeys.BLACKLIST, id)) return false;
                 jedis.hset(RedisKeys.BLACKLIST, id, String.valueOf(true));
             }
@@ -969,7 +1007,11 @@ public class Market {
                 return false;
             }
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
+            JedisPool pool = getJedis();
+            if (pool == null) {
+                return false;
+            }
+            try (Jedis jedis = pool.getResource()) {
                 if (!jedis.hexists(RedisKeys.BLACKLIST, id)) return false;
                 jedis.hdel(RedisKeys.BLACKLIST, id);
             }
@@ -1040,34 +1082,37 @@ public class Market {
                 logger.error("Failed to search listings", e);
             }
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
-                Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
-                for (String openListing : openListings) {
-                    Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
-                    Text.Builder l = Text.builder();
-                    Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
-                    if (!is.isPresent()) continue;
-                    if (is.get().getItem().equals(itemType)) {
-                        l.append(Texts.quickItemFormat(is.get()));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "@"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.GREEN, "$" + listing.get("Price")));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "for"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.GREEN, listing.get("Quantity") + "x"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "Seller:"));
-                        l.append(Text.of(TextColors.LIGHT_PURPLE, " " + jedis.hget(RedisKeys.UUID_CACHE, listing.get("Seller"))));
-                        l.append(Text.of(" "));
-                        l.append(Text.builder()
-                                .color(TextColors.GREEN)
-                                .onClick(TextActions.runCommand("/market check " + openListing))
-                                .append(Text.of("[Info]"))
-                                .onHover(TextActions.showText(Text.of("View more info about this listing.")))
-                                .build());
-                        texts.add(l.build());
+            JedisPool pool = getJedis();
+            if (pool != null) {
+                try (Jedis jedis = pool.getResource()) {
+                    Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
+                    for (String openListing : openListings) {
+                        Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
+                        Text.Builder l = Text.builder();
+                        Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
+                        if (!is.isPresent()) continue;
+                        if (is.get().getItem().equals(itemType)) {
+                            l.append(Texts.quickItemFormat(is.get()));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "@"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.GREEN, "$" + listing.get("Price")));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "for"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.GREEN, listing.get("Quantity") + "x"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "Seller:"));
+                            l.append(Text.of(TextColors.LIGHT_PURPLE, " " + jedis.hget(RedisKeys.UUID_CACHE, listing.get("Seller"))));
+                            l.append(Text.of(" "));
+                            l.append(Text.builder()
+                                    .color(TextColors.GREEN)
+                                    .onClick(TextActions.runCommand("/market check " + openListing))
+                                    .append(Text.of("[Info]"))
+                                    .onHover(TextActions.showText(Text.of("View more info about this listing.")))
+                                    .build());
+                            texts.add(l.build());
+                        }
                     }
                 }
             }
@@ -1113,34 +1158,37 @@ public class Market {
                 logger.error("Failed to search listings", e);
             }
         } else {
-            try (Jedis jedis = getJedis().getResource()) {
-                Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
-                for (String openListing : openListings) {
-                    Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
-                    if (listing.get("Seller").equals(uniqueId.toString())) {
-                        Text.Builder l = Text.builder();
-                        Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
-                        if (!is.isPresent()) continue;
-                        l.append(Texts.quickItemFormat(is.get()));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "@"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.GREEN, "$" + listing.get("Price")));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "for"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.GREEN, listing.get("Quantity") + "x"));
-                        l.append(Text.of(" "));
-                        l.append(Text.of(TextColors.WHITE, "Seller:"));
-                        l.append(Text.of(TextColors.LIGHT_PURPLE, " " + jedis.hget(RedisKeys.UUID_CACHE, listing.get("Seller"))));
-                        l.append(Text.of(" "));
-                        l.append(Text.builder()
-                                .color(TextColors.GREEN)
-                                .onClick(TextActions.runCommand("/market check " + openListing))
-                                .append(Text.of("[Info]"))
-                                .onHover(TextActions.showText(Text.of("View more info about this listing.")))
-                                .build());
-                        texts.add(l.build());
+            JedisPool pool = getJedis();
+            if (pool != null) {
+                try (Jedis jedis = pool.getResource()) {
+                    Set<String> openListings = jedis.hgetAll(RedisKeys.forSale()).keySet();
+                    for (String openListing : openListings) {
+                        Map<String, String> listing = jedis.hgetAll(RedisKeys.marketItemKey(openListing));
+                        if (listing.get("Seller").equals(uniqueId.toString())) {
+                            Text.Builder l = Text.builder();
+                            Optional<ItemStack> is = deserializeItemStack(listing.get("Item"));
+                            if (!is.isPresent()) continue;
+                            l.append(Texts.quickItemFormat(is.get()));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "@"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.GREEN, "$" + listing.get("Price")));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "for"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.GREEN, listing.get("Quantity") + "x"));
+                            l.append(Text.of(" "));
+                            l.append(Text.of(TextColors.WHITE, "Seller:"));
+                            l.append(Text.of(TextColors.LIGHT_PURPLE, " " + jedis.hget(RedisKeys.UUID_CACHE, listing.get("Seller"))));
+                            l.append(Text.of(" "));
+                            l.append(Text.builder()
+                                    .color(TextColors.GREEN)
+                                    .onClick(TextActions.runCommand("/market check " + openListing))
+                                    .append(Text.of("[Info]"))
+                                    .onHover(TextActions.showText(Text.of("View more info about this listing.")))
+                                    .build());
+                            texts.add(l.build());
+                        }
                     }
                 }
             }
