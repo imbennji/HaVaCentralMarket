@@ -6,6 +6,7 @@ import com.kookykraftmc.market.commands.MarketCommand;
 import com.kookykraftmc.market.commands.subcommands.*;
 import com.kookykraftmc.market.commands.subcommands.blacklist.BlacklistAddCommand;
 import com.kookykraftmc.market.commands.subcommands.blacklist.BlacklistRemoveCommand;
+import com.kookykraftmc.market.sql.Database;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.hocon.HoconConfigurationLoader;
@@ -25,6 +26,7 @@ import org.spongepowered.api.event.cause.EventContext;
 import org.spongepowered.api.event.filter.Getter;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
+import org.spongepowered.api.event.game.state.GameStoppingServerEvent;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.item.inventory.ItemStack;
@@ -77,6 +79,8 @@ public class Market {
     private JedisPool jedisPool;
     private RedisPubSub sub;
 
+    private Database database;
+
     private Cause marketCause;
     private List<String> blacklistedItems;
 
@@ -97,6 +101,13 @@ public class Market {
                 this.cfg.getNode("Redis", "Password").setValue("password");
 
                 this.cfg.getNode("Market", "Sponge", "Server").setValue("TEST");
+
+                // MySQL defaults
+                this.cfg.getNode("MySQL", "Host").setValue("localhost");
+                this.cfg.getNode("MySQL", "Port").setValue(3306);
+                this.cfg.getNode("MySQL", "Database").setValue("market");
+                this.cfg.getNode("MySQL", "Username").setValue("root");
+                this.cfg.getNode("MySQL", "Password").setValue("");
                 logger.info("Config created...");
                 this.getConfigManager().save(cfg);
             }
@@ -107,6 +118,14 @@ public class Market {
             this.redisHost = cfg.getNode("Redis", "Host").getString();
             this.redisPass = cfg.getNode("Redis", "Password").getString();
             this.serverName = cfg.getNode("Market", "Sponge", "Server").getString();
+
+            String sqlHost = cfg.getNode("MySQL", "Host").getString("localhost");
+            int sqlPort = cfg.getNode("MySQL", "Port").getInt(3306);
+            String sqlDatabase = cfg.getNode("MySQL", "Database").getString("market");
+            String sqlUser = cfg.getNode("MySQL", "Username").getString("root");
+            String sqlPassword = cfg.getNode("MySQL", "Password").getString("");
+            database = new Database(sqlHost, sqlPort, sqlDatabase, sqlUser, sqlPassword, logger);
+            database.runMigrations();
 
             if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
                 jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
@@ -229,6 +248,13 @@ public class Market {
                 .child(search, "search")
                 .build();
         getGame().getCommandManager().register(this, marketCmd, "market");
+    }
+
+    @Listener
+    public void onServerStop(GameStoppingServerEvent event) {
+        if (database != null) {
+            database.close();
+        }
     }
 
     @Listener

@@ -30,12 +30,15 @@ dependencies {
     compileOnly 'org.spongepowered:spongeapi:7.4.0'
 
     // Shade these into the jar
-    implementation 'redis.clients:jedis:2.9.0'
-    implementation 'org.apache.commons:commons-pool2:2.4.2'
+      implementation 'redis.clients:jedis:2.9.0'
+      implementation 'org.apache.commons:commons-pool2:2.4.2'
 
-    // MongoDB Java driver (Java 8 compatible)
-    implementation 'org.mongodb:mongodb-driver-sync:4.11.1'
-}
+      // MongoDB Java driver (Java 8 compatible)
+      implementation 'org.mongodb:mongodb-driver-sync:4.11.1'
+
+      // HikariCP for MySQL pooling
+      implementation 'com.zaxxer:HikariCP:3.4.5'
+  }
 
 sponge.plugin.id = PID
 
@@ -43,11 +46,12 @@ tasks.named('shadowJar') {
     // include the libs we want to shade
     dependencies {
         include(dependency('redis.clients:jedis'))
-        include(dependency('org.apache.commons:commons-pool2'))
-        include(dependency('org.mongodb:mongodb-driver-sync'))
-        include(dependency('org.mongodb:bson'))
-        include(dependency('org.mongodb:mongodb-driver-core'))
-    }
+          include(dependency('org.apache.commons:commons-pool2'))
+          include(dependency('org.mongodb:mongodb-driver-sync'))
+          include(dependency('org.mongodb:bson'))
+          include(dependency('org.mongodb:mongodb-driver-core'))
+          include(dependency('com.zaxxer:HikariCP'))
+      }
 
     // relocate shaded libs to avoid server conflicts
     relocate 'org.apache',     "${PG}.relocate.org.apache"
