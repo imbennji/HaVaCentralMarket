@@ -23,6 +23,7 @@ public class Texts {
     public static Text AIR_ITEM = Text.builder().color(TextColors.RED).append(Text.of("Please hold something in your hand.")).build();
     public static Text COULD_NOT_MAKE_LISTNG = Text.builder().color(TextColors.RED).append(Text.of("Could not make listing, sorry.")).build();
     public static Text COULD_NOT_ADD_STOCK = Text.builder().color(TextColors.RED).append(Text.of("Unable to add stock. This means the item you are holding has different data then the item you listed before.")).build();
+    public static Text PLAYERS_ONLY = Text.builder().color(TextColors.RED).append(Text.of("This command can only be used by players.")).build();
     public static Text BLACKLIST_NO_ADD = Text.builder().color(TextColors.RED).append(Text.of("Could not add to blacklist.. maybe try holding something?")).build();
     public static Text BLACKLIST_NO_ADD_2 = Text.builder().color(TextColors.RED).append(Text.of("Could not add to blacklist.")).build();
     public static Text BLACKLIST_REMOVED = Text.builder().color(TextColors.GREEN).append(Text.of("Succesfully removed from the blacklist.")).build();

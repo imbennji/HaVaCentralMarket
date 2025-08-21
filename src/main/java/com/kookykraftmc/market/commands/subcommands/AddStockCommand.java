@@ -21,6 +21,10 @@ public class AddStockCommand implements CommandExecutor {
     Market pl = Market.instance;
     @Override
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
+        if (!(src instanceof Player)) {
+            src.sendMessage(Texts.PLAYERS_ONLY);
+            return CommandResult.success();
+        }
         Player player = (Player) src;
         Optional<ItemStack> ois = player.getItemInHand(HandTypes.MAIN_HAND);
         if (ois.isPresent()) {

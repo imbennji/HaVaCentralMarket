@@ -28,6 +28,10 @@ public class BuyCommand implements CommandExecutor {
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
         Optional<String> id = args.getOne(Text.of("id"));
         if (id.isPresent()) {
+            if (!(src instanceof Player)) {
+                src.sendMessage(Texts.PLAYERS_ONLY);
+                return CommandResult.success();
+            }
             Player player = (Player) src;
             Optional<UniqueAccount> acc = pl.getEconomyService().getOrCreateAccount(player.getUniqueId());
             if (acc.isPresent()) {
