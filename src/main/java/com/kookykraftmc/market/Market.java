@@ -495,6 +495,9 @@ public class Market {
         } catch (IOException e) {
             logger.error("Failed to deserialize item stack", e);
         }
+        if (node == null) {
+            return Optional.empty();
+        }
         DataView dataView = DataTranslators.CONFIGURATION_NODE.translate(node);
         return getGame().getDataManager().deserialize(ItemStack.class, dataView);
     }
