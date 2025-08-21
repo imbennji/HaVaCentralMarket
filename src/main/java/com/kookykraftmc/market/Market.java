@@ -181,19 +181,7 @@ public class Market {
             }
         } else {
             if (useMySql && database == null) {
-                logger.error("MySQL initialization failed (database is null). Check credentials or driver. Falling back to Redis.");
-
-                // Attempt to configure Redis as a fallback backend
-                this.redisPort = cfg.getNode("Redis", "Port").getInt();
-                this.redisHost = cfg.getNode("Redis", "Host").getString();
-                this.redisPass = cfg.getNode("Redis", "Password").getString();
-                if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
-                } else {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort);
-                }
-
-                useMySql = false;
+                logger.error("MySQL initialization failed (database is null). Check credentials or driver.");
             }
 
             JedisPool pool = getJedis();
