@@ -158,7 +158,30 @@ public class Market {
         marketCause = Cause.of(EventContext.empty(), this);
 
         try (Jedis jedis = getJedis().getResource()) {
-            blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
+            if (sqlStorage != null) {
+                Map<String, String> uuids = sqlStorage.getUuidCache();
+                if (!uuids.isEmpty()) jedis.hmset(RedisKeys.UUID_CACHE, uuids);
+                blacklistedItems = sqlStorage.getBlacklistedItems();
+                for (String item : blacklistedItems) {
+                    jedis.hset(RedisKeys.BLACKLIST, item, String.valueOf(true));
+                }
+                List<ListingRecord> listings = sqlStorage.getListings();
+                int maxId = 0;
+                for (ListingRecord listing : listings) {
+                    String id = String.valueOf(listing.getId());
+                    String key = RedisKeys.MARKET_ITEM_KEY(id);
+                    jedis.hset(key, "Item", listing.getItem());
+                    jedis.hset(key, "Seller", listing.getSellerUuid());
+                    jedis.hset(key, "Stock", String.valueOf(listing.getStock()));
+                    jedis.hset(key, "Price", String.valueOf(listing.getPrice()));
+                    jedis.hset(key, "Quantity", String.valueOf(listing.getQuantity()));
+                    jedis.hset(RedisKeys.FOR_SALE, id, listing.getSellerUuid());
+                    maxId = Math.max(maxId, listing.getId());
+                }
+                jedis.set(RedisKeys.LAST_MARKET_ID, String.valueOf(maxId + 1));
+            } else {
+                blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
+            }
         }
 
         CommandSpec createMarketCmd = CommandSpec.builder()
@@ -285,6 +308,9 @@ public class Market {
         try (Jedis jedis = getJedis().getResource()) {
             jedis.hset(RedisKeys.UUID_CACHE, uuid, name);
         }
+        if (sqlStorage != null) {
+            sqlStorage.upsertUuidCache(uuid, name);
+        }
     }
 
     private ConfigurationLoader<CommentedConfigurationNode> getConfigManager() {
@@ -410,8 +436,9 @@ public class Market {
                 jedis.set(RedisKeys.LAST_MARKET_ID, String.valueOf(1));
                 int id = 1;
                 String key = RedisKeys.MARKET_ITEM_KEY(String.valueOf(id));
+                String serialized = serializeItem(itemStack);
                 Transaction m = jedis.multi();
-                m.hset(key, "Item", serializeItem(itemStack));
+                m.hset(key, "Item", serialized);
                 m.hset(key, "Seller", player.getUniqueId().toString());
                 m.hset(key, "Stock", String.valueOf(itemStack.getQuantity()));
                 m.hset(key, "Price", String.valueOf(price));
@@ -421,15 +448,20 @@ public class Market {
                 jedis.hset(RedisKeys.FOR_SALE, String.valueOf(id), player.getUniqueId().toString());
 
                 jedis.incr(RedisKeys.LAST_MARKET_ID);
+
+                if (sqlStorage != null) {
+                    sqlStorage.insertListing(new ListingRecord(id, player.getUniqueId().toString(), serialized, itemStack.getQuantity(), price, quantityPerSale));
+                }
 
                 return id;
             } else {
                 int id = Integer.parseInt(jedis.get(RedisKeys.LAST_MARKET_ID));
                 String key = RedisKeys.MARKET_ITEM_KEY(String.valueOf(id));
                 if (checkForOtherListings(itemStack, player.getUniqueId().toString())) return -1;
+                String serialized = serializeItem(itemStack);
 
                 Transaction m = jedis.multi();
-                m.hset(key, "Item", serializeItem(itemStack));
+                m.hset(key, "Item", serialized);
                 m.hset(key, "Seller", player.getUniqueId().toString());
                 m.hset(key, "Stock", String.valueOf(itemStack.getQuantity()));
                 m.hset(key, "Price", String.valueOf(price));
@@ -439,6 +471,10 @@ public class Market {
                 jedis.hset(RedisKeys.FOR_SALE, String.valueOf(id), player.getUniqueId().toString());
 
                 jedis.incr(RedisKeys.LAST_MARKET_ID);
+
+                if (sqlStorage != null) {
+                    sqlStorage.insertListing(new ListingRecord(id, player.getUniqueId().toString(), serialized, itemStack.getQuantity(), price, quantityPerSale));
+                }
 
                 return id;
             }
@@ -529,6 +565,9 @@ public class Market {
                 }
                 // remove from the listings
                 jedis.hdel(RedisKeys.FOR_SALE, id);
+                if (sqlStorage != null) {
+                    sqlStorage.removeListing(Integer.parseInt(id));
+                }
                 return stacks;
             }
         }
@@ -587,6 +626,9 @@ public class Market {
                     int stock = Integer.parseInt(jedis.hget(RedisKeys.MARKET_ITEM_KEY(id), "Stock"));
                     int quan = itemStack.getQuantity() + stock;
                     jedis.hset(RedisKeys.MARKET_ITEM_KEY(id), "Stock", String.valueOf(quan));
+                    if (sqlStorage != null) {
+                        sqlStorage.updateListingStock(Integer.parseInt(id), quan);
+                    }
                     return true;
                 } else return false;
             }
@@ -619,8 +661,14 @@ public class Market {
                     // if the new quantity is less than the quantity to be sold, expire the listing
                     if (newQuant < quant) {
                         jedis.hdel(RedisKeys.FOR_SALE, id);
+                        if (sqlStorage != null) {
+                            sqlStorage.removeListing(Integer.parseInt(id));
+                        }
                     } else {
                         jedis.hset(RedisKeys.MARKET_ITEM_KEY(id), "Stock", String.valueOf(newQuant));
+                        if (sqlStorage != null) {
+                            sqlStorage.updateListingStock(Integer.parseInt(id), newQuant);
+                        }
                     }
                     ItemStack nis = is.copy();
                     nis.setQuantity(quant);
@@ -642,6 +690,9 @@ public class Market {
             jedis.hset(RedisKeys.BLACKLIST, id, String.valueOf(true));
         }
         addIDToBlackList(id);
+        if (sqlStorage != null) {
+            sqlStorage.addBlacklistItem(id);
+        }
         return true;
     }
 
@@ -651,6 +702,9 @@ public class Market {
             jedis.hdel(RedisKeys.BLACKLIST, id);
         }
         rmIDFromBlackList(id);
+        if (sqlStorage != null) {
+            sqlStorage.removeBlacklistItem(id);
+        }
         return true;
     }
 
