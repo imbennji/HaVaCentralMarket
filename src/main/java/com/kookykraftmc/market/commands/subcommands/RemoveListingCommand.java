@@ -24,7 +24,10 @@ public class RemoveListingCommand implements CommandExecutor {
     Market pl = Market.instance;
     @Override
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
-
+        if (!(src instanceof Player)) {
+            src.sendMessage(Texts.PLAYERS_ONLY);
+            return CommandResult.success();
+        }
         Player player = (Player) src;
         Optional<String> oid = args.getOne(Text.of("id"));
         oid.ifPresent(s -> {

@@ -23,7 +23,10 @@ public class BlacklistAddCommand implements CommandExecutor {
     Market pl = Market.instance;
     @Override
     public CommandResult execute(CommandSource src, CommandContext args) throws CommandException {
-        if (!(src instanceof Player)) return CommandResult.empty();
+        if (!(src instanceof Player)) {
+            src.sendMessage(Texts.PLAYERS_ONLY);
+            return CommandResult.success();
+        }
         Optional<ItemStack> is = ((Player) src).getItemInHand(HandTypes.MAIN_HAND);
         if (is.isPresent()) {
             ItemStack si = is.get();
