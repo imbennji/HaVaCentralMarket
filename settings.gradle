@@ -1,7 +1,7 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven { url "https://repo.spongepowered.org/repository/maven-public/" } // for spongegradle + plugin-meta
+        maven { url "https://repo.spongepowered.org/repository/maven-public/" } // for plugin-gradle + plugin-meta
         mavenCentral()                                       // harmless extra fallback
     }
     // Optional: make the mapping explicit (works fine with Gradle 6.9.4)
