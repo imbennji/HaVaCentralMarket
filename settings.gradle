@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url "https://repo.spongepowered.org/maven" } // for spongegradle + plugin-meta
+        mavenCentral()                                       // harmless extra fallback
+    }
+    // Optional: make the mapping explicit (works fine with Gradle 6.9.4)
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "org.spongepowered.plugin") {
+                useModule("org.spongepowered:spongegradle:${requested.version}")
+            }
+        }
+    }
+}
+
+rootProject.name = "MarketSponge"

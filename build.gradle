@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+    id 'org.spongepowered.plugin' version '0.8.1'
+    id 'com.github.johnrengelman.shadow' version '5.2.0'
+}
+
+// Java 8 for Sponge 1.12.2
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+// ---- Resolve properties with safe defaults ----
+def PG  = findProperty("pluginGroup")   ?: "co.nytro.market"
+def PV  = findProperty("pluginVersion") ?: "0.1.1"
+def PID = findProperty("pluginId")      ?: "market"
+
+group = PG
+version = PV
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.spongepowered.org/maven' }
+    // only if you truly need snapshots:
+    // maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+}
+
+dependencies {
+    // SpongeAPI is provided by the server
+    compileOnly 'org.spongepowered:spongeapi:7.4.0'
+
+    // Shade these into the jar
+    implementation 'redis.clients:jedis:2.9.0'
+    implementation 'org.apache.commons:commons-pool2:2.4.2'
+
+    // MongoDB Java driver (Java 8 compatible)
+    implementation 'org.mongodb:mongodb-driver-sync:4.11.1'
+}
+
+sponge.plugin.id = PID
+
+tasks.named('shadowJar') {
+    // include the libs we want to shade
+    dependencies {
+        include(dependency('redis.clients:jedis'))
+        include(dependency('org.apache.commons:commons-pool2'))
+        include(dependency('org.mongodb:mongodb-driver-sync'))
+        include(dependency('org.mongodb:bson'))
+        include(dependency('org.mongodb:mongodb-driver-core'))
+    }
+
+    // relocate shaded libs to avoid server conflicts
+    relocate 'org.apache',     "${PG}.relocate.org.apache"
+    relocate 'redis.clients',  "${PG}.relocate.redis.clients"
+    relocate 'com.mongodb',    "${PG}.relocate.com.mongodb"
+    relocate 'org.bson',       "${PG}.relocate.org.bson"
+
+    archiveFileName.set("Market-${PV}.jar")
+}
+
+// Only build the shaded jar
+tasks.build { dependsOn tasks.shadowJar }
+tasks.jar  { enabled = false }
