@@ -32,6 +32,7 @@ import org.spongepowered.api.item.ItemType;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.scheduler.Scheduler;
+import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.service.economy.EconomyService;
 import org.spongepowered.api.service.economy.account.UniqueAccount;
 import org.spongepowered.api.service.economy.transaction.ResultType;
@@ -50,6 +51,7 @@ import java.io.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Plugin(id = "market", name = "Market", description = "Market", url = "https://kookykraftmc.net", authors = {"TimeTheCat"})
@@ -82,8 +84,8 @@ public class Market {
     // Optional MySQL storage service used for cross server synchronization
     private MySqlStorageService sqlStorage;
 
-    // Thread used to poll MySQL for cross server events
-    private Thread sqlListenerThread;
+    // Task used to poll MySQL for cross server events
+    private Task sqlListenerTask;
 
     private Database database;
 
@@ -267,9 +269,9 @@ public class Market {
 
     @Listener
     public void onServerStop(GameStoppingServerEvent event) {
-        if (sqlListenerThread != null && sqlListenerThread.isAlive()) {
-            sqlListenerThread.interrupt();
-            sqlListenerThread = null;
+        if (sqlListenerTask != null && !sqlListenerTask.isCancelled()) {
+            sqlListenerTask.cancel();
+            sqlListenerTask = null;
         }
         if (jedisPool != null) {
             jedisPool.close();
@@ -301,8 +303,11 @@ public class Market {
 
     void subscribe() {
         if (sqlStorage != null) {
-            sqlListenerThread = new Thread(new MySqlListener(this, sqlStorage));
-            sqlListenerThread.start();
+            sqlListenerTask = getScheduler().createTaskBuilder()
+                    .execute(new MySqlListener(this, sqlStorage))
+                    .interval(1, TimeUnit.SECONDS)
+                    .name("Market SQL Listener")
+                    .submit(this);
         }
     }
 
