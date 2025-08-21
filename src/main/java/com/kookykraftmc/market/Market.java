@@ -284,7 +284,11 @@ public class Market {
 
     @Listener
     public void onServerStop(GameStoppingServerEvent event) {
-        if (sqlListenerTask != null && !sqlListenerTask.isCancelled()) {
+        // The Sponge API Task interface no longer exposes an "isCancelled" method
+        // in some versions. Calling cancel() on an already-cancelled task is a
+        // no-op, so simply check for null before cancelling to avoid compilation
+        // issues across API versions.
+        if (sqlListenerTask != null) {
             sqlListenerTask.cancel();
             sqlListenerTask = null;
         }
