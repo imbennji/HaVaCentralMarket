@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS listings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    seller_uuid VARCHAR(36) NOT NULL,
+    item TEXT NOT NULL,
+    stock INT NOT NULL,
+    price INT NOT NULL,
+    quantity INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS blacklist (
+    item VARCHAR(128) PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS uuid_cache (
+    uuid VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(16) NOT NULL
+);
