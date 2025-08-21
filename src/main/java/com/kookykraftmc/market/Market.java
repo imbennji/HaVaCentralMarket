@@ -109,6 +109,7 @@ public class Market {
                 this.cfg.getNode("Market", "Sponge", "Server").setValue("TEST");
 
                 // MySQL defaults
+                this.cfg.getNode("MySQL", "Enabled").setValue(false);
                 this.cfg.getNode("MySQL", "Host").setValue("localhost");
                 this.cfg.getNode("MySQL", "Port").setValue(3306);
                 this.cfg.getNode("MySQL", "Database").setValue("market");
@@ -125,19 +126,22 @@ public class Market {
             this.redisPass = cfg.getNode("Redis", "Password").getString();
             this.serverName = cfg.getNode("Market", "Sponge", "Server").getString();
 
-            String sqlHost = cfg.getNode("MySQL", "Host").getString("localhost");
-            int sqlPort = cfg.getNode("MySQL", "Port").getInt(3306);
-            String sqlDatabase = cfg.getNode("MySQL", "Database").getString("market");
-            String sqlUser = cfg.getNode("MySQL", "Username").getString("root");
-            String sqlPassword = cfg.getNode("MySQL", "Password").getString("");
-            database = new Database(sqlHost, sqlPort, sqlDatabase, sqlUser, sqlPassword, logger);
-            database.runMigrations();
+            boolean mysqlEnabled = cfg.getNode("MySQL", "Enabled").getBoolean(false);
+            if (mysqlEnabled) {
+                String sqlHost = cfg.getNode("MySQL", "Host").getString("localhost");
+                int sqlPort = cfg.getNode("MySQL", "Port").getInt(3306);
+                String sqlDatabase = cfg.getNode("MySQL", "Database").getString("market");
+                String sqlUser = cfg.getNode("MySQL", "Username").getString("root");
+                String sqlPassword = cfg.getNode("MySQL", "Password").getString("");
+                database = new Database(sqlHost, sqlPort, sqlDatabase, sqlUser, sqlPassword, logger);
+                database.runMigrations();
 
-            try {
-                sqlStorage = new MySqlStorageService(database.getDataSource(), logger);
-                subscribe();
-            } catch (SQLException e) {
-                logger.error("Failed to initialize MySQL storage service", e);
+                try {
+                    sqlStorage = new MySqlStorageService(database.getDataSource(), logger);
+                    subscribe();
+                } catch (SQLException e) {
+                    logger.error("Failed to initialize MySQL storage service", e);
+                }
             }
 
             if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
