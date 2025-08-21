@@ -84,42 +84,49 @@ public class Market {
 
                 this.cfg = getConfigManager().load();
 
-                this.cfg.getNode("Market", "Sponge", "Version").setValue(0.1);
+                this.cfg.getNode("market", "sponge", "version").setValue(0.1);
 
-                this.cfg.getNode("Redis", "Host").setValue("localhost");
-                this.cfg.getNode("Redis", "Port").setValue(6379);
-                this.cfg.getNode("Redis", "Use-password").setValue(false);
-                this.cfg.getNode("Redis", "Password").setValue("password");
+                ConfigurationNode storage = this.cfg.getNode("storage");
+                storage.getNode("type").setValue("redis");
 
-                this.cfg.getNode("Storage", "Type").setValue("redis");
-                this.cfg.getNode("MySQL", "Host").setValue("localhost");
-                this.cfg.getNode("MySQL", "Port").setValue(3306);
-                this.cfg.getNode("MySQL", "Database").setValue("market");
-                this.cfg.getNode("MySQL", "User").setValue("root");
-                this.cfg.getNode("MySQL", "Password").setValue("password");
+                ConfigurationNode redis = storage.getNode("redis");
+                redis.getNode("host").setValue("localhost");
+                redis.getNode("port").setValue(6379);
+                redis.getNode("use-password").setValue(false);
+                redis.getNode("password").setValue("password");
 
-                this.cfg.getNode("Market", "Sponge", "Server").setValue("TEST");
+                ConfigurationNode mysql = storage.getNode("mysql");
+                mysql.getNode("host").setValue("localhost");
+                mysql.getNode("port").setValue(3306);
+                mysql.getNode("database").setValue("market");
+                mysql.getNode("user").setValue("root");
+                mysql.getNode("password").setValue("password");
+
+                this.cfg.getNode("market", "sponge", "server").setValue("TEST");
                 logger.info("Config created...");
                 this.getConfigManager().save(cfg);
             }
 
             this.cfg = this.configManager.load();
 
-            this.serverName = cfg.getNode("Market", "Sponge", "Server").getString();
+            this.serverName = cfg.getNode("market", "sponge", "server").getString();
 
-            String storageType = cfg.getNode("Storage", "Type").getString("redis");
+            ConfigurationNode storage = cfg.getNode("storage");
+            String storageType = storage.getNode("type").getString("redis");
             if (storageType.equalsIgnoreCase("mysql")) {
-                String host = cfg.getNode("MySQL", "Host").getString("localhost");
-                int port = cfg.getNode("MySQL", "Port").getInt(3306);
-                String database = cfg.getNode("MySQL", "Database").getString("market");
-                String user = cfg.getNode("MySQL", "User").getString("root");
-                String pass = cfg.getNode("MySQL", "Password").getString("");
+                ConfigurationNode mysql = storage.getNode("mysql");
+                String host = mysql.getNode("host").getString("localhost");
+                int port = mysql.getNode("port").getInt(3306);
+                String database = mysql.getNode("database").getString("market");
+                String user = mysql.getNode("user").getString("root");
+                String pass = mysql.getNode("password").getString("");
                 storageService = new MySqlStorageService(this, host, port, database, user, pass);
             } else {
-                this.redisPort = cfg.getNode("Redis", "Port").getInt();
-                this.redisHost = cfg.getNode("Redis", "Host").getString();
-                this.redisPass = cfg.getNode("Redis", "Password").getString();
-                boolean usePassword = cfg.getNode("Redis", "Use-password").getBoolean();
+                ConfigurationNode redis = storage.getNode("redis");
+                this.redisPort = redis.getNode("port").getInt(6379);
+                this.redisHost = redis.getNode("host").getString("localhost");
+                this.redisPass = redis.getNode("password").getString("password");
+                boolean usePassword = redis.getNode("use-password").getBoolean(false);
                 storageService = new RedisStorageService(this, this.redisHost, this.redisPort, this.redisPass, usePassword);
             }
 
