@@ -22,11 +22,16 @@ public class MySqlListener implements Runnable {
         while (running) {
             List<MarketEvent> events = storageService.pollEvents();
             for (MarketEvent event : events) {
-                String type = event.getType();
-                if ("BLACKLIST_ADD".equalsIgnoreCase(type)) {
-                    market.addIDToBlackList(event.getItem());
-                } else if ("BLACKLIST_REMOVE".equalsIgnoreCase(type)) {
-                    market.rmIDFromBlackList(event.getItem());
+                MarketEventType type = event.getType();
+                switch (type) {
+                    case BLACKLIST_ADD:
+                        market.addIDToBlackList(event.getItem());
+                        break;
+                    case BLACKLIST_REMOVE:
+                        market.rmIDFromBlackList(event.getItem());
+                        break;
+                    default:
+                        break;
                 }
                 storageService.markProcessed(event.getId());
             }

@@ -38,11 +38,11 @@ public class MySqlStorageService {
         }
     }
 
-    public void insertBlacklistEvent(String type, String item) {
+    public void insertBlacklistEvent(MarketEventType type, String item) {
         String sql = "INSERT INTO " + EVENTS_TABLE + "(type, item) VALUES (?, ?)";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, type);
+            ps.setString(1, type.name());
             ps.setString(2, item);
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -57,7 +57,9 @@ public class MySqlStorageService {
              PreparedStatement ps = connection.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                events.add(new MarketEvent(rs.getInt("id"), rs.getString("type"), rs.getString("item")));
+                String typeName = rs.getString("type");
+                MarketEventType type = MarketEventType.valueOf(typeName);
+                events.add(new MarketEvent(rs.getInt("id"), type, rs.getString("item")));
             }
         } catch (SQLException e) {
             logger.error("Failed to poll events", e);

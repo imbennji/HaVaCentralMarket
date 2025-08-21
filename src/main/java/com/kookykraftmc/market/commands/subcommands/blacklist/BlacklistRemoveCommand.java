@@ -3,6 +3,7 @@ package com.kookykraftmc.market.commands.subcommands.blacklist;
 import com.kookykraftmc.market.Market;
 import com.kookykraftmc.market.Texts;
 import com.kookykraftmc.market.MySqlStorageService;
+import com.kookykraftmc.market.MarketEventType;
 import org.spongepowered.api.command.CommandException;
 import org.spongepowered.api.command.CommandResult;
 import org.spongepowered.api.command.CommandSource;
@@ -25,7 +26,7 @@ public class BlacklistRemoveCommand implements CommandExecutor {
                 src.sendMessage(Texts.BLACKLIST_REMOVED);
                 MySqlStorageService sql = pl.getMySqlStorageService();
                 if (sql != null) {
-                    sql.insertBlacklistEvent("BLACKLIST_REMOVE", s1);
+                    sql.insertBlacklistEvent(MarketEventType.BLACKLIST_REMOVE, s1);
                 }
             } else {
                 src.sendMessage(Texts.BLACKLIST_REMOVED_FAIL);
