@@ -47,18 +47,21 @@ public class Database {
     }
 
     public void runMigrations() {
-        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
-            InputStream in = getClass().getResourceAsStream("/sql/schema.sql");
+        try (Connection conn = dataSource.getConnection();
+             Statement st = conn.createStatement();
+             InputStream in = getClass().getResourceAsStream("/sql/schema.sql")) {
             if (in == null) {
                 logger.error("Could not load schema.sql");
                 return;
             }
-            String sql = new BufferedReader(new InputStreamReader(in))
-                    .lines().collect(Collectors.joining("\n"));
-            for (String statement : sql.split(";")) {
-                String trimmed = statement.trim();
-                if (!trimmed.isEmpty()) {
-                    st.execute(trimmed);
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+                String sql = reader.lines().collect(Collectors.joining("\n"));
+                for (String statement : sql.split(";")) {
+                    String trimmed = statement.trim();
+                    if (!trimmed.isEmpty()) {
+                        st.execute(trimmed);
+                    }
                 }
             }
         } catch (Exception e) {

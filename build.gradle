@@ -63,3 +63,6 @@ tasks.named('shadowJar') {
 // Only build the shaded jar
 tasks.build { dependsOn tasks.shadowJar }
 tasks.jar  { enabled = false }
+
+// disable metadata generation for testing to avoid plugin validation issues
+tasks.named('generateMetadata').configure { enabled = false }
