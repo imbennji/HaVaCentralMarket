@@ -168,34 +168,23 @@ public class Market {
         // SpongeAPI 7: use EventContext + plugin instance/container in the Cause
         marketCause = Cause.of(EventContext.empty(), this);
 
-        if (useMySql && database != null) {
-            try (Connection conn = database.getDataSource().getConnection();
-                 PreparedStatement ps = conn.prepareStatement("SELECT item FROM blacklist");
-                 ResultSet rs = ps.executeQuery()) {
-                blacklistedItems = new ArrayList<>();
-                while (rs.next()) {
-                    blacklistedItems.add(rs.getString("item"));
+        if (useMySql) {
+            if (database != null) {
+                try (Connection conn = database.getDataSource().getConnection();
+                     PreparedStatement ps = conn.prepareStatement("SELECT item FROM blacklist");
+                     ResultSet rs = ps.executeQuery()) {
+                    blacklistedItems = new ArrayList<>();
+                    while (rs.next()) {
+                        blacklistedItems.add(rs.getString("item"));
+                    }
+                } catch (SQLException e) {
+                    logger.error("Failed to load blacklist from MySQL", e);
                 }
-            } catch (SQLException e) {
-                logger.error("Failed to load blacklist from MySQL", e);
+            } else {
+                logger.error("Fatal error: MySQL initialization failed (database is null). Aborting initialization.");
+                return;
             }
         } else {
-            if (useMySql && database == null) {
-                logger.error("MySQL initialization failed (database is null). Check credentials or driver. Falling back to Redis.");
-
-                // Attempt to configure Redis as a fallback backend
-                this.redisPort = cfg.getNode("Redis", "Port").getInt();
-                this.redisHost = cfg.getNode("Redis", "Host").getString();
-                this.redisPass = cfg.getNode("Redis", "Password").getString();
-                if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
-                } else {
-                    jedisPool = setupRedis(this.redisHost, this.redisPort);
-                }
-
-                useMySql = false;
-            }
-
             try (Jedis jedis = getJedis().getResource()) {
                 blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
             }
