@@ -48,6 +48,7 @@ import redis.clients.jedis.Transaction;
 
 import java.io.*;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -87,7 +88,7 @@ public class Market {
     private Database database;
 
     private Cause marketCause;
-    private List<String> blacklistedItems;
+    private List<String> blacklistedItems = Lists.newArrayList();
 
     @Listener
     public void onPreInit(GamePreInitializationEvent event) {
@@ -132,6 +133,13 @@ public class Market {
             database = new Database(sqlHost, sqlPort, sqlDatabase, sqlUser, sqlPassword, logger);
             database.runMigrations();
 
+            try {
+                sqlStorage = new MySqlStorageService(database.getDataSource(), logger);
+                subscribe();
+            } catch (SQLException e) {
+                logger.error("Failed to initialize MySQL storage service", e);
+            }
+
             if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
                 jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
             } else {
@@ -152,8 +160,6 @@ public class Market {
         try (Jedis jedis = getJedis().getResource()) {
             blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
         }
-
-        subscribe();
 
         CommandSpec createMarketCmd = CommandSpec.builder()
                 .executor(new CreateCommand())
