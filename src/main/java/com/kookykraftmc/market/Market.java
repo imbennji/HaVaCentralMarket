@@ -396,16 +396,21 @@ public class Market {
     }
 
     public JedisPool getJedis() {
+        if (cfg == null) {
+            logger.error("Configuration not loaded. Unable to provide Jedis pool.");
+            throw new IllegalStateException("Configuration not loaded");
+        }
+
         if (jedisPool == null) {
             // Use the same case as onPreInit ("Redis")
             if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
-                return setupRedis(this.redisHost, this.redisPort, this.redisPass);
+                jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
             } else {
-                return setupRedis(this.redisHost, this.redisPort);
+                jedisPool = setupRedis(this.redisHost, this.redisPort);
             }
-        } else {
-            return jedisPool;
         }
+
+        return jedisPool;
     }
 
     public PaginationService getPaginationService() {
