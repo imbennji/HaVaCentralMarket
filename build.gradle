@@ -37,6 +37,8 @@ dependencies {
         implementation 'mysql:mysql-connector-java:8.0.33'
         // HikariCP for MySQL pooling
         implementation 'com.zaxxer:HikariCP:4.0.3'
+
+    testImplementation 'junit:junit:4.13.2'
   }
 
 sponge.plugin.id = PID
