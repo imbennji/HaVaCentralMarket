@@ -81,6 +81,9 @@ public class Market {
     // Optional MySQL storage service used for cross server synchronization
     private MySqlStorageService sqlStorage;
 
+    // Thread used to poll MySQL for cross server events
+    private Thread sqlListenerThread;
+
     private Database database;
 
     private Cause marketCause;
@@ -254,6 +257,14 @@ public class Market {
 
     @Listener
     public void onServerStop(GameStoppingServerEvent event) {
+        if (sqlListenerThread != null && sqlListenerThread.isAlive()) {
+            sqlListenerThread.interrupt();
+            sqlListenerThread = null;
+        }
+        if (jedisPool != null) {
+            jedisPool.close();
+            jedisPool = null;
+        }
         if (database != null) {
             database.close();
         }
@@ -280,8 +291,8 @@ public class Market {
 
     void subscribe() {
         if (sqlStorage != null) {
-            getScheduler().createAsyncExecutor(this)
-                    .execute(new MySqlListener(this, sqlStorage));
+            sqlListenerThread = new Thread(new MySqlListener(this, sqlStorage));
+            sqlListenerThread.start();
         }
     }
 
