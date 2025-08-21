@@ -195,8 +195,6 @@ public class Market {
                 try (Jedis jedis = pool.getResource()) {
                     blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
                 }
-            try (Jedis jedis = getJedis().getResource()) {
-                blacklistedItems = Lists.newArrayList(jedis.hgetAll(RedisKeys.BLACKLIST).keySet());
             }
         }
 
