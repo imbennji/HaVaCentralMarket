@@ -43,6 +43,9 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Transaction;
+import com.kookykraftmc.market.storage.StorageService;
+import com.kookykraftmc.market.storage.RedisStorageService;
+import com.kookykraftmc.market.storage.MySqlStorageService;
 
 import java.io.*;
 import java.math.BigDecimal;
@@ -76,6 +79,7 @@ public class Market {
     private String redisPass;
     private JedisPool jedisPool;
     private RedisPubSub sub;
+    private StorageService storageService;
 
     private Cause marketCause;
     private List<String> blacklistedItems;
@@ -88,30 +92,52 @@ public class Market {
                 defaultCfg.createNewFile();
 
                 this.cfg = getConfigManager().load();
+                CommentedConfigurationNode root = (CommentedConfigurationNode) this.cfg;
 
-                this.cfg.getNode("Market", "Sponge", "Version").setValue(0.1);
+                root.getNode("Market", "Sponge", "Version").setValue(0.1);
 
-                this.cfg.getNode("Redis", "Host").setValue("localhost");
-                this.cfg.getNode("Redis", "Port").setValue(6379);
-                this.cfg.getNode("Redis", "Use-password").setValue(false);
-                this.cfg.getNode("Redis", "Password").setValue("password");
+                root.getNode("storage").setComment("Storage settings");
+                root.getNode("storage", "type").setComment("Storage backend: redis or mysql").setValue("redis");
 
-                this.cfg.getNode("Market", "Sponge", "Server").setValue("TEST");
+                root.getNode("storage", "redis", "host").setComment("Redis host").setValue("localhost");
+                root.getNode("storage", "redis", "port").setComment("Redis port").setValue(6379);
+                root.getNode("storage", "redis", "use-password").setComment("Use a password to connect to Redis").setValue(false);
+                root.getNode("storage", "redis", "password").setComment("Redis password").setValue("password");
+
+                root.getNode("storage", "mysql", "host").setComment("MySQL host").setValue("localhost");
+                root.getNode("storage", "mysql", "port").setComment("MySQL port").setValue(3306);
+                root.getNode("storage", "mysql", "database").setComment("MySQL database").setValue("market");
+                root.getNode("storage", "mysql", "user").setComment("MySQL user").setValue("root");
+                root.getNode("storage", "mysql", "password").setComment("MySQL password").setValue("password");
+                root.getNode("storage", "mysql", "pool", "size").setComment("MySQL connection pool size").setValue(10);
+
+                root.getNode("Market", "Sponge", "Server").setValue("TEST");
                 logger.info("Config created...");
                 this.getConfigManager().save(cfg);
             }
 
             this.cfg = this.configManager.load();
 
-            this.redisPort = cfg.getNode("Redis", "Port").getInt();
-            this.redisHost = cfg.getNode("Redis", "Host").getString();
-            this.redisPass = cfg.getNode("Redis", "Password").getString();
             this.serverName = cfg.getNode("Market", "Sponge", "Server").getString();
 
-            if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
-                jedisPool = setupRedis(this.redisHost, this.redisPort, this.redisPass);
+            String type = cfg.getNode("storage", "type").getString("redis");
+            if ("mysql".equalsIgnoreCase(type)) {
+                ConfigurationNode mysql = cfg.getNode("storage", "mysql");
+                storageService = new MySqlStorageService(
+                        mysql.getNode("host").getString("localhost"),
+                        mysql.getNode("port").getInt(3306),
+                        mysql.getNode("database").getString("market"),
+                        mysql.getNode("user").getString("root"),
+                        mysql.getNode("password").getString("password")
+                );
             } else {
-                jedisPool = setupRedis(this.redisHost, this.redisPort);
+                ConfigurationNode redis = cfg.getNode("storage", "redis");
+                this.redisPort = redis.getNode("port").getInt(6379);
+                this.redisHost = redis.getNode("host").getString("localhost");
+                this.redisPass = redis.getNode("password").getString("password");
+                boolean usePassword = redis.getNode("use-password").getBoolean(false);
+                storageService = new RedisStorageService(this.redisHost, this.redisPort, usePassword, this.redisPass);
+                jedisPool = ((RedisStorageService) storageService).getPool();
             }
 
         } catch (Exception e) {
@@ -271,8 +297,7 @@ public class Market {
 
     public JedisPool getJedis() {
         if (jedisPool == null) {
-            // Use the same case as onPreInit ("Redis")
-            if (this.cfg.getNode("Redis", "Use-password").getBoolean()) {
+            if (this.cfg.getNode("storage", "redis", "use-password").getBoolean()) {
                 return setupRedis(this.redisHost, this.redisPort, this.redisPass);
             } else {
                 return setupRedis(this.redisHost, this.redisPort);
