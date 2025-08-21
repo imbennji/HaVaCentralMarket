@@ -912,7 +912,7 @@ public class Market {
     }
 
     private boolean matchItemStacks(ItemStack is0, ItemStack is1) {
-        return new DataComparator().compare(is0, is1) == 0;
+        return new DataComparator().test(is0, is1);
     }
 
     public ItemStack purchase(UniqueAccount uniqueAccount, String id) {

@@ -37,6 +37,10 @@ dependencies {
         implementation 'mysql:mysql-connector-java:8.0.33'
         // HikariCP for MySQL pooling
         implementation 'com.zaxxer:HikariCP:4.0.3'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.mockito:mockito-core:5.7.0'
+    testImplementation 'org.spongepowered:spongeapi:7.4.0'
   }
 
 sponge.plugin.id = PID
@@ -61,3 +65,6 @@ tasks.named('shadowJar') {
 // Only build the shaded jar
 tasks.build { dependsOn tasks.shadowJar }
 tasks.jar  { enabled = false }
+
+// disable metadata generation for testing to avoid plugin validation issues
+tasks.named('generateMetadata').configure { enabled = false }
