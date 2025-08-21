@@ -25,7 +25,7 @@ repositories {
     // maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
 }
 
-dependencies {
+  dependencies {
     // SpongeAPI is provided by the server
     compileOnly 'org.spongepowered:spongeapi:7.4.0'
 
@@ -37,6 +37,8 @@ dependencies {
       implementation 'mysql:mysql-connector-java:8.0.33'
       // HikariCP for MySQL pooling
       implementation 'com.zaxxer:HikariCP:3.4.5'
+
+      testImplementation 'junit:junit:4.13.2'
   }
 
 sponge.plugin.id = PID
